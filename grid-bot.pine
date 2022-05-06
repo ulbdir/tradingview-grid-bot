@@ -2,7 +2,7 @@
 // © ulbdir
 
 //@version=5
-strategy("bot", overlay=true, max_labels_count = 500, max_bars_back=100, process_orders_on_close=true, pyramiding=1000, initial_capital= 1000, close_entries_rule="ANY" )
+strategy("bot", overlay=true, max_labels_count = 500, max_bars_back=100, process_orders_on_close=true, pyramiding=1000, initial_capital= 1000, close_entries_rule="ANY")
 
 var bot_lines= array.new_float()
 
@@ -10,9 +10,14 @@ min_price = input.float(20000, "Min Price", 0)
 max_price = input.float(70000, "Max Price")
 price_step = input.float(1000, "Price Step")
 
-if barstate.isfirst
-    array.clear(bot_lines)
+// calculate percentage of equity for sizing positions
+var pos_size_absolute = strategy.initial_capital / array.size(bot_lines)
+var pos_size_percent = pos_size_absolute / strategy.initial_capital
 
+if barstate.isfirst
+
+    // Initialise the grid lines
+    array.clear(bot_lines)
     cprice = max_price
     while (cprice > min_price)
         array.push(bot_lines, cprice)
@@ -20,18 +25,20 @@ if barstate.isfirst
     
     array.sort(bot_lines, order.descending)
 
-
-// on first candle, draw the grid lines
-if barstate.isfirst
+    // draw the grid lines
     for i = 0 to array.size(bot_lines) - 1 
         line.new(bar_index - 1, array.get(bot_lines, i), bar_index, array.get(bot_lines, i), width=2, color=color.gray, extend=extend.both, style=line.style_dashed)
-    
+
 if barstate.isconfirmed
     
     int crossed_line = na
     for i = 0 to array.size(bot_lines) - 1 
         if (high > array.get(bot_lines, i) and low <= array.get(bot_lines, i))
             crossed_line := i
+            
+            // Use highest price on green candles, lowest price on red candles
+            if open<close
+                break
     
     if not na(crossed_line)
         // go back up to 50 candles and see what grid line we did cross last
@@ -47,19 +54,20 @@ if barstate.isconfirmed
                 if (crossed_line - 1) >= 0
                     sell_price := array.get(bot_lines, crossed_line - 1)
     
+                pos_size = (strategy.equity * pos_size_percent) / close
                 
                 // place limit order to buy
                 if not na(buy_price)
                     // cancel any possible buy order at the price
                     strategy.cancel("buy@" + str.tostring(buy_price))
-                    strategy.entry("buy@" + str.tostring(buy_price), strategy.long, limit = buy_price)
+                    strategy.entry("buy@" + str.tostring(buy_price), strategy.long, limit = buy_price, qty = pos_size)
 
                 if not na(sell_price)
                     // place limit order to sell
                     strategy.cancel("sell@" + str.tostring(sell_price))
                     strategy.exit("sell@" + str.tostring(sell_price), from_entry="buy@"+ str.tostring(array.get(bot_lines, crossed_line)), limit = sell_price)
-                        
-                label.new(bar_index, na, str.tostring(bar_index) + "\nbuy@" + str.tostring(buy_price) + "\nsell@" + str.tostring(sell_price) + "\nsize: " + str.tostring(strategy.position_size), color=color.green, textcolor=color.black, style=label.style_label_down, yloc=yloc.abovebar)
+
+                label.new(bar_index, na, str.tostring(bar_index) + "\nbuy@" + str.tostring(buy_price) + ":" + str.tostring(pos_size * close) + "\nsell@" + str.tostring(sell_price) + "\nsize: " + str.tostring(strategy.position_size), color=color.green, textcolor=color.black, style=label.style_label_down, yloc=yloc.abovebar)
                 break
         
             else if na(crossed_line[j])
