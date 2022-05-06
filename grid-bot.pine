@@ -2,23 +2,24 @@
 // © ulbdir
 
 //@version=5
-strategy("bot", overlay=true, max_labels_count = 500, max_bars_back=100, process_orders_on_close=true, close_entries_rule="ANY")
+strategy("bot", overlay=true, max_labels_count = 500, max_bars_back=100, process_orders_on_close=true, pyramiding=1000, initial_capital= 1000, close_entries_rule="ANY" )
 
 var bot_lines= array.new_float()
 
+min_price = input.float(20000, "Min Price", 0)
+max_price = input.float(70000, "Max Price")
+price_step = input.float(1000, "Price Step")
+
 if barstate.isfirst
     array.clear(bot_lines)
-    
-    min_price = 30000
-    max_price = 70000
-    price_inc = 1000
-    
+
     cprice = max_price
     while (cprice > min_price)
         array.push(bot_lines, cprice)
-        cprice := cprice - price_inc
+        cprice := cprice - price_step
     
     array.sort(bot_lines, order.descending)
+
 
 // on first candle, draw the grid lines
 if barstate.isfirst
@@ -52,13 +53,10 @@ if barstate.isconfirmed
                     // cancel any possible buy order at the price
                     strategy.cancel("buy@" + str.tostring(buy_price))
                     strategy.entry("buy@" + str.tostring(buy_price), strategy.long, limit = buy_price)
-                    //strategy.order("buy@" + str.tostring(buy_price), strategy.long, limit = buy_price)
-    
+
                 if not na(sell_price)
                     // place limit order to sell
                     strategy.cancel("sell@" + str.tostring(sell_price))
-                    //if (strategy.position_size > 0)
-                        //strategy.order("sell@" + str.tostring(sell_price), strategy.short, limit = sell_price)
                     strategy.exit("sell@" + str.tostring(sell_price), from_entry="buy@"+ str.tostring(array.get(bot_lines, crossed_line)), limit = sell_price)
                         
                 label.new(bar_index, na, str.tostring(bar_index) + "\nbuy@" + str.tostring(buy_price) + "\nsell@" + str.tostring(sell_price) + "\nsize: " + str.tostring(strategy.position_size), color=color.green, textcolor=color.black, style=label.style_label_down, yloc=yloc.abovebar)
