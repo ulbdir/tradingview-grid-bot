@@ -2,7 +2,7 @@
 // © ulbdir
 
 //@version=5
-strategy("bot", overlay=true, max_labels_count = 500, max_bars_back=100, process_orders_on_close=true)
+strategy("bot", overlay=true, max_labels_count = 500, max_bars_back=100, process_orders_on_close=true, close_entries_rule="ANY")
 
 var bot_lines= array.new_float()
 
@@ -19,10 +19,6 @@ if barstate.isfirst
         cprice := cprice - price_inc
     
     array.sort(bot_lines, order.descending)
-
-//order_already_created(price) =>
-//    for trade in strategy.opentrades
-//        break
 
 // on first candle, draw the grid lines
 if barstate.isfirst
@@ -54,15 +50,17 @@ if barstate.isconfirmed
                 // place limit order to buy
                 if not na(buy_price)
                     // cancel any possible buy order at the price
-                    strategy.cancel("buy" + str.tostring(buy_price))
-                    //strategy.entry("buy@" + str.tostring(buy_price) + "_" + str.tostring(bar_index), strategy.long, limit = buy_price)
-                    strategy.order("buy@" + str.tostring(buy_price), strategy.long, limit = buy_price)
+                    strategy.cancel("buy@" + str.tostring(buy_price))
+                    strategy.entry("buy@" + str.tostring(buy_price), strategy.long, limit = buy_price)
+                    //strategy.order("buy@" + str.tostring(buy_price), strategy.long, limit = buy_price)
     
                 if not na(sell_price)
                     // place limit order to sell
                     strategy.cancel("sell@" + str.tostring(sell_price))
-                    if (strategy.position_size > 0)
-                        strategy.order("sell@" + str.tostring(sell_price), strategy.short, limit = sell_price)
+                    //if (strategy.position_size > 0)
+                        //strategy.order("sell@" + str.tostring(sell_price), strategy.short, limit = sell_price)
+                    strategy.exit("sell@" + str.tostring(sell_price), from_entry="buy@"+ str.tostring(array.get(bot_lines, crossed_line)), limit = sell_price)
+                        
                 label.new(bar_index, na, str.tostring(bar_index) + "\nbuy@" + str.tostring(buy_price) + "\nsell@" + str.tostring(sell_price) + "\nsize: " + str.tostring(strategy.position_size), color=color.green, textcolor=color.black, style=label.style_label_down, yloc=yloc.abovebar)
                 break
         
